@@ -2,6 +2,7 @@ import axios from 'axios'
 
 export function request(config){
   const instance = axios.create({
+    //mrly.top/api/shop
     baseURL: 'mrly.top/api/shop',
     timeout: 5000
   })

@@ -1,7 +1,7 @@
 <template>
   <div class="goods-item-box">
     <div class="goods-list-item">
-      <img :src="goodsItem.show.img" alt="">
+      <img :src="goodsItem.show.img" alt="" @load="imageLoad">
       <div class="goods-info">
         <p>{{goodsItem.title }}</p>
         <div class="info">
@@ -25,6 +25,12 @@ export default {
       default() {
         return {}
       }
+    }
+  },
+  methods:{
+    imageLoad(){
+      //// 通过事件总线 实现图片刷新
+      this.$bus.$emit('itemImageLoad')
     }
   }
 }
@@ -51,6 +57,7 @@ export default {
   }
   .price {
     font-size: 18px;
+    color: var(--color-high-text);
   }
   .collect {
     float: right;
