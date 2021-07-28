@@ -2,19 +2,35 @@
   <div id="home">
     <nav-bar class="home-nav"><div slot="center">购物街</div></nav-bar>
 
+    <tab-control
+      :title="['推荐','新品','精选']"
+      @tabClick = 'tabClick'
+      ref="tabControl1"
+      class="tab-control"
+      v-show="isTabFixed"
+    />
+
     <scroll class="content"
             ref="scroll"
             :probe-type="3"
             @scroll="contentScroll"
             :pullUpLoad="true"
             @pullingUp="LoadMore">
-      <home-swiper :banners="banners"></home-swiper>
-      <recommend-view :recommends="recommends"></recommend-view>
-      <feature-view></feature-view>
-      <tab-control :title="['推荐','新品','精选']"
-                   class="tab-control"
-                   @tabClick = 'tabClick'
-      ></tab-control>
+      <!--  轮播图    -->
+      <home-swiper
+        :banners="banners"
+        @swiperImageLoad="swiperImageLoad"
+      />
+      <!--  推荐    -->
+      <recommend-view :recommends="recommends"/>
+      <!--   流行   -->
+      <feature-view/>
+      <!--   tab-control   -->
+      <tab-control
+        :title="['推荐','新品','精选']"
+        @tabClick = 'tabClick'
+        ref="tabControl2"
+      />
       <goods-list :goods="showGoods"/>
     </scroll>
 
@@ -36,8 +52,9 @@
   import RecommendView from './childComps/HomeRecommendView';
   import FeatureView from "./childComps/FeatureView";
 
-  // 获取数据
+  // 导入数据相关
   import {getHomeMultidata, getHomeGoods} from 'network/home';
+  import {debounce} from "common/utils";
 
   export default {
     name: "Home",
@@ -60,11 +77,43 @@
           'new': {page: 0,list: []},
           'sell': {page: 0,list: []}
         },
+        goodsPosition: {
+          'pop': {saveY:0},
+          'new': {saveY:0},
+          'sell': {saveY:0}
+        },
         currentType: 'pop',
-        isShowBackTop: false
+        isShowBackTop: false,
+        tabOffsetTop: 0,
+        isTabFixed: false,
+        saveY: 0,
+        isSaveY: false
       }
     },
+    created() {
+      //实例创建完成后调用
+      // 1.请求多个数据
+      this.getHomeMultidata()
+      // 2.请求商品数据
+      this.getHomeGoods('pop')
+      this.getHomeGoods('new')
+      this.getHomeGoods('sell')
+    },
+    mounted() {
+      // 挂载到实例后调用
+      // 1.监听itam中图片加载完成
+      const refresh = debounce(this.$refs.scroll.refresh,200)
+      this.$bus.$on('itemImageLoad' , () => {
+        refresh()
+      })
+    },
+    activated() {
+      //切换为活跃状态时 加载浏览历史
+      this.$refs.scroll.scrollTo(0,this.goodsPosition[this.currentType].saveY,0)
+      this.$refs.scroll.refresh()
+    },
     computed: {
+      //传递数据到goods-list
       showGoods(){
         return this.goods[this.currentType].list
       }
@@ -73,6 +122,7 @@
       /*
        * 事件监听相关
        * */
+      //tab-control 点击切换
       tabClick(index){
         switch (index){
           case 0:
@@ -85,81 +135,109 @@
             this.currentType = 'sell'
             break;
         }
-        this.$refs.scroll.scroll.refresh()
+        this.$refs.tabControl1.currentIndex = index
+        this.$refs.tabControl2.currentIndex = index
+
+        // 切换时加载浏览历史
+        this.$refs.scroll.scrollTo(0,this.goodsPosition[this.currentType].saveY,800)
+        this.$refs.scroll.refresh()
       },
+      //返回顶部
       backClick(){
-        // console.log('backClick');
-        this.$refs.scroll.scrollTo(0,0,500)
+        this.$refs.scroll.scrollTo(0,this.tabOffsetTop,500)
       },
+      // Scroll.vue  监听滚动
       contentScroll(position){
+        // 1.判断BackTop是否显示
         position.y < -1000 ? this.isShowBackTop = true : this.isShowBackTop = false ;
+
+        // 2.决定tabcontrol是否吸顶(position: fixed)
+        this.isTabFixed = position.y < this.tabOffsetTop
+
+        // 3.实现Home页面浏览数据的保存
+        position.y > this.tabOffsetTop ? this.isSaveY = false : this.isSaveY = true
+        if(!this.isSaveY){
+          for (let goodsKey in this.goodsPosition) {
+            this.goodsPosition[goodsKey].saveY = this.tabOffsetTop
+          }
+        }
+        if(this.isSaveY){
+          for (let goodsKey in this.goodsPosition) {
+            if(this.currentType !== goodsKey ){
+              if (this.goodsPosition[goodsKey].saveY > this.tabOffsetTop){
+                this.goodsPosition[goodsKey].saveY = this.tabOffsetTop
+              }
+            }
+            this.goodsPosition[this.currentType].saveY = position.y
+          }
+        }
+
       },
+      //上拉加载更多
       LoadMore(){
-        //上拉加载更多
-        console.log('上拉加载更多');
         this.getHomeGoods(this.currentType)
-        this.$refs.scroll.scroll.refresh()
+        this.$refs.scroll.refresh()
+      },
+      // 1.获取tabcontrol的offsetTop
+      swiperImageLoad(){
+        this.tabOffsetTop = -this.$refs.tabControl2.$el.offsetTop
       },
       /*
       * 网络请求相关
       * */
+      //getHomeMultidata获取轮播图数据
       getHomeMultidata() {
         getHomeMultidata().then(res => {
           this.banners = res.data.banner.list
           this.recommends = res.data.recommend.list
         })
       },
+      //获取商品数据
       getHomeGoods(type) {
         const page = this.goods[type].page + 1
         getHomeGoods(type,page).then(res => {
-          // console.log(res);
           this.goods[type].list.push(...res.data.list)
           this.goods[type].page += 1
-
+          // 完成上拉加载更多
           this.$refs.scroll.finishPullUp()
         })
       }
-    },
-    created() {
-      // 1.请求多个数据
-      this.getHomeMultidata()
-      // 2.请求商品数据
-      this.getHomeGoods('pop')
-      this.getHomeGoods('new')
-      this.getHomeGoods('sell')
-
-      // 3.监听itam中图片加载完成
-      this.$bus.$on('itemImageLoad' , () => {
-        this.$refs.scroll.refresh()
-      })
     }
   }
 </script>
 
 <style scoped>
   #home{
-    padding-top: 44px;
+    /*padding-top: 44px;*/
     height:100vh;
+    position: relative;
   }
   .home-nav{
     background-color: var(--color-tint);
     color: #fff;
 
-    position: fixed;
-    left: 0;
-    right: 0;
-    top: 0;
-    z-index:1;
+    /*在使用浏览器原生滚动时,为了让导航不跟随一起滚动*/
+    /*position: fixed;*/
+    /*left: 0;*/
+    /*right: 0;*/
+    /*top: 0;*/
+    /*z-index:9;*/
   }
 
   .content{
-    height:calc(100vh - 93px);
+    /*height:calc(100vh - 93px);*/
     overflow: hidden;
-    /*margin-top: 44px;*/
-  }
-  .content .tab-control{
-    position: sticky;
-    overflow: hidden;
+
+    position: absolute;
     top: 44px;
+    bottom: 49px;
+    left: 0;
+    right: 0;
+  }
+  .tab-control{
+    position: relative;
+    z-index: 9;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
   }
 </style>

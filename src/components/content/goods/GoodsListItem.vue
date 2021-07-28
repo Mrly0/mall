@@ -1,6 +1,6 @@
 <template>
   <div class="goods-item-box">
-    <div class="goods-list-item">
+    <div class="goods-list-item" @click="itemClick">
       <img :src="goodsItem.show.img" alt="" @load="imageLoad">
       <div class="goods-info">
         <p>{{goodsItem.title }}</p>
@@ -31,6 +31,9 @@ export default {
     imageLoad(){
       //// 通过事件总线 实现图片刷新
       this.$bus.$emit('itemImageLoad')
+    },
+    itemClick(){
+      this.$router.push('/detail/' + this.goodsItem.iid)
     }
   }
 }
@@ -61,6 +64,7 @@ export default {
   }
   .collect {
     float: right;
+    padding-top: 3px;
   }
   .collect img{
     width: 14px;
