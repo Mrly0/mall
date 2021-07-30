@@ -1,11 +1,14 @@
 <template>
   <div class="goods">
-    <goods-list-item v-for="item in goods" :goods-item="item" class="goods-list"/>
+    <goods-list-item v-for="(item,index) in goods"
+                     :products="item"
+                     class="goods-list"
+                     :key="index"/>
   </div>
 </template>
 
 <script>
-import GoodsListItem from "@/components/content/goods/GoodsListItem";
+import GoodsListItem from "./GoodsListItem";
 
 export default {
   name: "GoodsList",

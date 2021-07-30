@@ -45,7 +45,6 @@
   import Scroll from "components/common/scroll/Scroll";
   import TabControl from 'components/content/tabControl/TabControl';
   import GoodsList from 'components/content/goods/GoodsList';
-  import BackTop from "components/content/backTop/BackTop";
 
   //子组件引用
   import HomeSwiper from './childComps/HomeSwiper';
@@ -55,6 +54,7 @@
   // 导入数据相关
   import {getHomeMultidata, getHomeGoods} from 'network/home';
   import {debounce} from "common/utils";
+  import {itemImgListenerMixin,backTopMixin} from "common/mixin";
 
   export default {
     name: "Home",
@@ -65,9 +65,9 @@
       FeatureView ,
       TabControl,
       GoodsList,
-      Scroll,
-      BackTop
+      Scroll
     },
+    mixins:[itemImgListenerMixin,backTopMixin],
     data() {
       return {
         banners: [],
@@ -83,7 +83,6 @@
           'sell': {saveY:0}
         },
         currentType: 'pop',
-        isShowBackTop: false,
         tabOffsetTop: 0,
         isTabFixed: false,
         saveY: 0,
@@ -100,17 +99,14 @@
       this.getHomeGoods('sell')
     },
     mounted() {
-      // 挂载到实例后调用
-      // 1.监听itam中图片加载完成
-      const refresh = debounce(this.$refs.scroll.refresh,200)
-      this.$bus.$on('itemImageLoad' , () => {
-        refresh()
-      })
     },
     activated() {
       //切换为活跃状态时 加载浏览历史
       this.$refs.scroll.scrollTo(0,this.goodsPosition[this.currentType].saveY,0)
       this.$refs.scroll.refresh()
+    },
+    deactivated() {
+      this.$bus.$off('itemImageLoad',this.itemImgListener)
     },
     computed: {
       //传递数据到goods-list
@@ -142,14 +138,10 @@
         this.$refs.scroll.scrollTo(0,this.goodsPosition[this.currentType].saveY,800)
         this.$refs.scroll.refresh()
       },
-      //返回顶部
-      backClick(){
-        this.$refs.scroll.scrollTo(0,this.tabOffsetTop,500)
-      },
       // Scroll.vue  监听滚动
       contentScroll(position){
-        // 1.判断BackTop是否显示
-        position.y < -1000 ? this.isShowBackTop = true : this.isShowBackTop = false ;
+        // 1.判断是否显示返回顶部
+        this.listenShowBackTop(position)
 
         // 2.决定tabcontrol是否吸顶(position: fixed)
         this.isTabFixed = position.y < this.tabOffsetTop
@@ -178,7 +170,7 @@
         this.getHomeGoods(this.currentType)
         this.$refs.scroll.refresh()
       },
-      // 1.获取tabcontrol的offsetTop
+      // 获取tabcontrol的offsetTop
       swiperImageLoad(){
         this.tabOffsetTop = -this.$refs.tabControl2.$el.offsetTop
       },

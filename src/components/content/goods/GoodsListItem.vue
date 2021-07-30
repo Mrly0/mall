@@ -1,14 +1,14 @@
 <template>
   <div class="goods-item-box">
     <div class="goods-list-item" @click="itemClick">
-      <img :src="goodsItem.show.img" alt="" @load="imageLoad">
+      <img v-lazy="showImg" alt="" @load="imageLoad">
       <div class="goods-info">
-        <p>{{goodsItem.title }}</p>
+        <p>{{products.title }}</p>
         <div class="info">
-          <span class="price">{{goodsItem.price}}</span>
+          <span class="price">{{products.price}}</span>
           <span class="collect">
             <img src="~assets/img/common/collect.svg" alt="">
-            {{goodsItem.cfav}}
+            {{products.cfav}}
           </span>
         </div>
       </div>
@@ -20,7 +20,7 @@
 export default {
   name: "GoodsListItem",
   props: {
-    goodsItem: {
+    products: {
       type: Object,
       default() {
         return {}
@@ -33,7 +33,13 @@ export default {
       this.$bus.$emit('itemImageLoad')
     },
     itemClick(){
-      this.$router.push('/detail/' + this.goodsItem.iid)
+      const productId = this.products.iid || this.products.shop_id
+      this.$router.push('/detail/' + productId)
+    }
+  },
+  computed: {
+    showImg(){
+      return this.products.img || this.products.image || this.products.show.img
     }
   }
 }
